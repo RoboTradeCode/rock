@@ -1,5 +1,5 @@
-from flash_gate.exchanges.base import Exchange
-from flash_gate.exchanges.types import ExchangeConfig
+from rock.exchanges.base import Exchange
+from rock.exchanges.types import ExchangeConfig
 from websockets import WebSocketClientProtocol
 
 
