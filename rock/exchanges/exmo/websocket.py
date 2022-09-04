@@ -1,71 +1,94 @@
+import base64
+import hashlib
+import hmac
 import json
-import logging
+import time
 import websockets
-from .enums import EventCode, EventType
-from .factories import EventFactory
-from .utils import keep_connection
-
-logger = logging.getLogger(__name__)
 
 
-# TODO: Use class methods instead static methods
-class WebsocketApi:
-    def __init__(self, uri: str, api_key: str = None, secret: str = None):
-        self.uri = uri
-        self.event_factory = EventFactory(api_key, secret)
-        self.websocket: websockets.WebSocketClientProtocol = None
+class Websocket:
+    def __init__(self, uri: str, api_key: str = None, api_secret: str = None):
+        self._client: websockets.WebSocketClientProtocol = None
+        self._uri = uri
+        self._api_key = api_key
+        self._api_secret = api_secret
 
-    async def connect(self):
-        websocket = await websockets.connect(self.uri)
-        self.websocket = websocket
+    async def connect(self) -> None:
+        """
+        Установить соединение с сервером
 
-    async def login(self):
-        event = self.event_factory.login()
+        Когда соединение с сервером установлено, сервер отправляет приветственное
+        сообщение с идентификатором сеанса в поле JSON session_id
+        """
+        self._client = await websockets.connect(self._uri)
+
+    async def login(self) -> None:
+        """
+        Аутентифицироваться на сервере
+
+        Аутентифицированный API позволяет получать информацию о сделках пользователей,
+        изменениях кошельков и ордеров в режиме реального времени. Чтобы использовать
+        этот API, необходимо установить соединение, а затем аутентифицироваться на
+        сервере, используя этот метод. В противном случае соединение будет прервано на
+        стороне сервера через 30 секунд
+        """
+        nonce = self._nonce()
+        sign = self._sign(nonce)
+        event = {
+            "method": "login",
+            "api_key": self._api_key,
+            "sign": sign,
+            "nonce": nonce,
+        }
         await self._send(event)
 
-    async def subscribe(self, topics: list[str]):
-        event = self.event_factory.subscribe(topics)
+    async def subscribe(self, topics: list[str]) -> None:
+        """
+        Подписаться на получение данных
+
+        При успехе придёт сообщение с типом subscribed. После получения этого
+        сообщения все данные, связанные с темами, будут отправляться в соединение. При
+        ошибке придёт сообщение с типом error
+        """
+        event = {"id": 1, "method": "subscribe", "topics": topics}
         await self._send(event)
 
-    async def wait_state(self) -> dict:
-        while event := await self._recv():
-            if event.get("event") in [EventType.SNAPSHOT, EventType.UPDATE]:
-                return event
-
-    @keep_connection
-    async def _send(self, event: dict):
-        message = json.dumps(event)
-        await self.websocket.send(message)
-
-    @keep_connection
-    async def _recv(self) -> dict:
-        message = await self.websocket.recv()
+    async def recv(self) -> dict:
+        """
+        Получить от сервера сообщение, декодировав его из формата JSON
+        """
+        message = await self._client.recv()
         event = json.loads(message)
-        self._raise_for_event(event)
         return event
 
-    @staticmethod
-    def _raise_for_event(event: dict):
-        WebsocketApi._raise_for_code(event)
-        WebsocketApi._raise_for_event_type(event)
+    async def _send(self, event: dict) -> None:
+        """
+        Отправить на сервер сообщение, закодировав его в формат JSON
+        """
+        message = json.dumps(event)
+        await self._client.send(message)
+
+    def _sign(self, nonce: int) -> str:
+        """
+        Получить подпись
+
+        Подпись представляет собой объединённую строку api_key и nonce, зашифрованную
+        методом HMAC-SHA512 с использованием секретного ключа. Байты подписи должны быть
+        представлено в виде строки base64. Формула:
+        sign = base64(sha512(api_key + nonce, api_secret))
+        """
+        key = self._api_secret.encode()
+        msg = f"{self._api_key}{nonce}".encode()
+        digest = hmac.new(key, msg, hashlib.sha512).digest()
+        sign = base64.b64encode(digest).decode()
+        return sign
 
     @staticmethod
-    def _raise_for_code(event: dict):
-        message = event.get("message")
-        match event.get("code"):
-            case EventCode.MAINTENANCE_IN_PROGRESS:
-                raise RuntimeError(message)
+    def _nonce() -> int:
+        """
+        Получить nonce
 
-    @staticmethod
-    def _raise_for_event_type(event: dict):
-        message = event.get("message")
-        match event.get("event"):
-            case EventType.ERROR:
-                raise RuntimeError(message)
-            case EventType.INFO:
-                logger.info(message)
-            case EventType.LOGGED_IN:
-                logger.info("Logged in")
-            case EventType.SUBSCRIBED:
-                topic = event.get("topic")
-                logger.info(f"Subscribed topic: {topic}")
+        Nonce представляет собой числовое значение (>0), которое никогда не должно
+        повторяться или уменьшаться. Используется при получении подписи для сообщения
+        """
+        return time.time_ns()
