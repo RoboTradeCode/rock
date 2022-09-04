@@ -42,9 +42,9 @@ class OrdersFormatter(Formatter):
         return orders
 
     @staticmethod
-    def _from_update(event: dict) -> Order:
-        order = OrdersFormatter._order(event["ts"], event["data"])
-        return order
+    def _from_update(event: dict) -> list[Order]:
+        orders = [OrdersFormatter._order(event["ts"], event["data"])]
+        return orders
 
     @staticmethod
     def _order(ts: int, data: dict) -> Order:

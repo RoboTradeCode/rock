@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .dataclasses import Balance
+from .dataclasses import Balance, Order
 from .typing import ExchangeConfig
 
 """
@@ -27,7 +27,7 @@ class Exchange(ABC):
         ...
 
     @abstractmethod
-    async def watch_orders(self) -> dict:
+    async def watch_orders(self) -> list[Order]:
         """
         Получить обновление ордеров
         """
