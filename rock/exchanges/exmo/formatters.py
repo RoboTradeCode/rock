@@ -51,6 +51,7 @@ class OrdersFormatter(Formatter):
         client_order_id = str(data["client_id"])
         timestamp = datetime_from_ms(ts)
         order_status = OrdersFormatter._status(data["status"])
+        symbol = data["pair"].replace("_", "/")
         order_type, order_side = OrdersFormatter._type_side(data["type"])
         price = Decimal(data["price"])
         amount = Decimal(data["original_quantity"])
@@ -61,7 +62,7 @@ class OrdersFormatter(Formatter):
             client_order_id=client_order_id,
             timestamp=timestamp,
             status=order_status,
-            symbol=data["pair"],
+            symbol=symbol,
             type=order_type,
             side=order_side,
             price=price,
