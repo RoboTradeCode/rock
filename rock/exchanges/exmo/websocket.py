@@ -21,6 +21,7 @@ class Websocket:
         сообщение с идентификатором сеанса в поле JSON session_id
         """
         self._client = await websockets.connect(self._uri)
+        await self.recv()
 
     async def login(self) -> None:
         """
@@ -41,6 +42,7 @@ class Websocket:
             "nonce": nonce,
         }
         await self._send(event)
+        await self.recv()
 
     async def subscribe(self, topics: list[str]) -> None:
         """
@@ -52,6 +54,7 @@ class Websocket:
         """
         event = {"id": 1, "method": "subscribe", "topics": topics}
         await self._send(event)
+        await self.recv()
 
     async def recv(self) -> dict:
         """
