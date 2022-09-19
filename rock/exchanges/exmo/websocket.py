@@ -3,22 +3,7 @@ import hashlib
 import hmac
 import json
 import time
-import typing
 import websockets
-
-
-def reconnect(io: typing.Callable) -> typing.Callable:
-    async def wrapped(self, *args, **kwargs):
-        if self._client is None:
-            await self.connect()
-
-        for _ in range(3):
-            try:
-                return await io(self, *args, **kwargs)
-            except websockets.ConnectionClosed:
-                await self.connect()
-
-    return wrapped
 
 
 class Websocket:
@@ -71,7 +56,6 @@ class Websocket:
         await self._send(event)
         await self.recv()
 
-    @reconnect
     async def recv(self) -> dict:
         """
         Получить от сервера сообщение, декодировав его из формата JSON
@@ -80,7 +64,6 @@ class Websocket:
         event = json.loads(message)
         return event
 
-    @reconnect
     async def _send(self, event: dict) -> None:
         """
         Отправить на сервер сообщение, закодировав его в формат JSON
