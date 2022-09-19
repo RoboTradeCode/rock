@@ -1,3 +1,5 @@
+from typing import Callable
+from websockets import ConnectionClosed
 from .enum import EventType
 from .formatters import BalanceFormatter, OrdersFormatter
 from .websocket import Websocket
@@ -6,6 +8,17 @@ from ..dataclasses import Balance, Order
 from ..typing import ExchangeConfig
 
 GENERAL_ENDPOINT = "ws-api.exmo.com"
+
+
+def reconnect(io: Callable) -> Callable:
+    async def wrapped(self, *args, **kwargs):
+        for _ in range(3):
+            try:
+                return await io(self, *args, **kwargs)
+            except ConnectionClosed:
+                await self.init()
+
+    return wrapped
 
 
 class Exmo(Exchange):
@@ -25,6 +38,7 @@ class Exmo(Exchange):
         await self._login()
         await self._subscribe()
 
+    @reconnect
     async def watch_balance(self) -> Balance:
         """
         Получить обновление баланса
@@ -34,6 +48,7 @@ class Exmo(Exchange):
                 balance = BalanceFormatter.format(event)
                 return balance
 
+    @reconnect
     async def watch_orders(self) -> list[Order]:
         """
         Получить обновление ордеров
