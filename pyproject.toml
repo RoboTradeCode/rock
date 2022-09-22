@@ -9,8 +9,8 @@ description = "RObotrade Crypto Kit"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-  { name="nomnoms12", email="alexander.ign0918@gmail.com" },
-  { name="khanbekov", email="khanbekov.blockchain@gmail.com" }
+    { name = "nomnoms12", email = "alexander.ign0918@gmail.com" },
+    { name = "khanbekov", email = "khanbekov.blockchain@gmail.com" }
 ]
 classifiers = [
     "Intended Audience :: Developers",
@@ -23,7 +23,16 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
-dependencies = ["websockets ~= 10.3"]
+dependencies = [
+    "websockets ~= 10.3"
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "pytest-asyncio",
+    "coverage",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/RoboTradeCode/rock"
