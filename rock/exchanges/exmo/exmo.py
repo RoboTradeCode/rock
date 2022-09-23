@@ -6,6 +6,7 @@ from .websocket import Websocket
 from ..abc import Exchange
 from ..dataclasses import Balance, Order
 from ..typing import ExchangeConfig
+from asyncio import Lock
 
 GENERAL_ENDPOINT = "ws-api.exmo.com"
 
@@ -29,14 +30,17 @@ class Exmo(Exchange):
 
         self.balance_client = Websocket(_uri, _api_key, _api_secret)
         self.orders_client = Websocket(_uri, _api_key, _api_secret)
+        self._lock = Lock()
 
     async def init(self) -> None:
         """
         Инициализировать асинхронные соединения
         """
-        await self._connect()
-        await self._login()
-        await self._subscribe()
+        # TODO: Разделить инициализацию разных сокетов
+        async with self._lock:
+            await self._connect()
+            await self._login()
+            await self._subscribe()
 
     @reconnect
     async def watch_balance(self) -> Balance:
